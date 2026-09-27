@@ -1,0 +1,47 @@
+name: Build APK
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unzip the newest project zip
+        run: |
+          ZIP=$(ls *.zip | sort -V | tail -1)
+          echo "Using $ZIP"
+          unzip -q -o "$ZIP" -d project
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build the APK
+        working-directory: project/cbse10-quiz/android
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+        run: gradle assembleRelease --no-daemon
+
+      - name: Rename APK
+        run: cp project/cbse10-quiz/android/app/build/outputs/apk/release/app-release.apk CBSE10-Quiz.apk
+
+      - name: Publish the APK as a download
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: CBSE 10 Quiz (build ${{ github.run_number }})
+          body: Download CBSE10-Quiz.apk below and send it to the phone.
+          files: CBSE10-Quiz.apk
+          make_latest: true
